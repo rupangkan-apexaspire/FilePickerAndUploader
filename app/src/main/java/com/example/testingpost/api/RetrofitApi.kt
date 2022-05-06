@@ -4,6 +4,7 @@ import com.example.testingpost.models.FilePostResponse
 import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody
+import okhttp3.ResponseBody
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Call
 import retrofit2.Retrofit
@@ -14,7 +15,11 @@ interface RetrofitApi {
 
     @Multipart
     @POST("UploadFile/?type=&file=")
-    suspend fun postFile(@Part("type") type: RequestBody, @Part file: MultipartBody.Part) : Call<FilePostResponse>
+    fun postFile(@Part("type") type: RequestBody, @Part file: MultipartBody.Part) : Call<FilePostResponse>
+
+    @Multipart
+    @POST("UploadFile/?type=&file=")
+    fun postFile2(@Part("type") type: RequestBody, @Part file: MultipartBody.Part) : Call<ResponseBody>
 
     companion object {
 

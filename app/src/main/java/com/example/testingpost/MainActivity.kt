@@ -34,6 +34,7 @@ import okhttp3.MediaType
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
+import okhttp3.ResponseBody
 import okio.BufferedSink
 import retrofit2.Call
 import retrofit2.Callback
@@ -291,9 +292,9 @@ class MainActivity : AppCompatActivity(), UploadRequestBody.UploadCallback {
 //        }
 
         Intent(Intent.ACTION_PICK).also {
-            it.type = "image/*"
-            val mimeTypes = arrayOf("image/jpeg", "image/png")
-            it.putExtra(Intent.EXTRA_MIME_TYPES, mimeTypes)
+            it.type = "*/*"
+//            val mimeTypes = arrayOf("image/jpeg", "image/png")
+//            it.putExtra(Intent.EXTRA_MIME_TYPES, mimeTypes)
             startActivityForResult(it, REQUEST_CODE_PICK_IMAGE)
         }
     }
@@ -304,44 +305,72 @@ class MainActivity : AppCompatActivity(), UploadRequestBody.UploadCallback {
             when (requestCode) {
                 REQUEST_CODE_PICK_IMAGE -> {
                     selectedImageUri = data?.data
+                    lifecycleScope.launch{
+                        uploadPDF()
+
+                    }
                 }
             }
         }
     }
 
-    private suspend fun uploadPDF() {
+    private fun uploadPDF() {
         val parcelFileDescriptor =
             contentResolver.openFileDescriptor(selectedImageUri!!, "r", null) ?: return
 
         val inputStream = FileInputStream(parcelFileDescriptor.fileDescriptor)
         val file = File(cacheDir, contentResolver.getFileName(selectedImageUri!!))
+        Log.d(TAG, "uploadPDF: ${file.absoluteFile}")
         val outputStream = FileOutputStream(file)
         inputStream.copyTo(outputStream)
 
         val retrofit: Retrofit = RetrofitHelper.getInstance()
         val retrofitApi: RetrofitApi = retrofit.create(RetrofitApi::class.java)
-        val body = UploadRequestBody(file, "application/pdf", this)
+        val body = UploadRequestBody(file, "application/pdf")
 
+        try {
+            RetrofitApi().postFile(
+                RequestBody.create("multipart/formdata".toMediaTypeOrNull(), file.extension),
+                MultipartBody.Part.createFormData(
+                    "file",
+                    file.name,
+                    body
+                ))
+                .enqueue(object : Callback<FilePostResponse> {
+                override fun onFailure(call: Call<FilePostResponse>, t: Throwable) {
+                    Log.d(TAG, "onFailureCall: $call")
+                    Log.d(TAG, "onFailureThrowable: $t")
+                }
 
-        RetrofitApi().postFile(
-            RequestBody.create("multipart/formdata".toMediaTypeOrNull(), "json"),
-            MultipartBody.Part.createFormData(
-                "file",
-                file.name,
-                body
-            )
-        ).enqueue(object : Callback<FilePostResponse> {
-            override fun onFailure(call: Call<FilePostResponse>, t: Throwable) {
-                Log.d(TAG, "onFailure: ")
-            }
+                override fun onResponse(
+                    call: Call<FilePostResponse>,
+                    response: Response<FilePostResponse>
+                ) {
+                    Log.d(TAG, "onResponse: $response")
+                    Log.d(TAG, "onResponse: ${response.body()}")
+                }
+            })
+//                .enqueue(object: Callback<ResponseBody> {
+//                    override fun onResponse(
+//                        call: Call<ResponseBody>,
+//                        response: Response<ResponseBody>
+//                    ) {
+//                        Log.d(TAG, "onResponse: $response")
+//                        Log.d(TAG, "onResponse: ${response.body()}")
+//                    }
+//
+//                    override fun onFailure(call: Call<ResponseBody>, t: Throwable) {
+//                        TODO("Not yet implemented")
+//                        Log.d(TAG, "onFailureCall: $call")
+//                        Log.d(TAG, "onFailureThrowable: $t")
+//
+//                    }
+//                })
 
-            override fun onResponse(
-                call: Call<FilePostResponse>,
-                response: Response<FilePostResponse>
-            ) {
-                Log.d(TAG, "onResponse: ")
-            }
-        })
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
 
     }
 
@@ -442,6 +471,7 @@ class MainActivity : AppCompatActivity(), UploadRequestBody.UploadCallback {
 
     override fun onProgressUpdate(percentage: Int) {
         TODO("Not yet implemented")
+        var progress = percentage
     }
 
 //    /storage/self/primary/Download/0ca597392de1072e3f938aa3622c87b6.jpg
